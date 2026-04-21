@@ -7,6 +7,7 @@ import { Card } from '@/components/Card';
 import { SignAvatar } from '@/components/SignAvatar';
 import { AccessibleButton } from '@/components/AccessibleButton';
 import { useAccessibility } from '@/context/AccessibilityContext';
+import { useUserProfile } from '@/context/UserProfileContext';
 import { lessonById } from '@/data/lessons';
 import { textToCues } from '@/utils/gloss';
 
@@ -14,6 +15,7 @@ export default function LessonScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { theme, settings, describe, announce, haptic } = useAccessibility();
+  const { addXp, markLessonComplete, earnBadge, pingActivity } = useUserProfile();
   const lesson = useMemo(() => (typeof id === 'string' ? lessonById(id) : undefined), [id]);
   const [stepIdx, setStepIdx] = useState(0);
 
@@ -34,6 +36,10 @@ export default function LessonScreen() {
     if (stepIdx + 1 >= lesson.steps.length) {
       announce('Lesson complete. Starting practice.', { speak: true });
       haptic('success');
+      markLessonComplete(lesson.id, lesson.language);
+      addXp(10);
+      pingActivity();
+      earnBadge('badge-first-lesson');
       router.replace(`/practice/${lesson.id}`);
       return;
     }

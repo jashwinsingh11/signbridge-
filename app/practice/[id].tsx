@@ -18,7 +18,7 @@ export default function PracticeScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { theme, settings, announce, haptic, describe } = useAccessibility();
-  const { recordAttempt, earnBadge } = useUserProfile();
+  const { recordAttempt, earnBadge, addXp, markLessonComplete, pingActivity, profile } = useUserProfile();
   const [permission, requestPermission] = useCameraPermissions();
   const lesson = useMemo(() => (typeof id === 'string' ? lessonById(id) : undefined), [id]);
   const [stepIdx, setStepIdx] = useState(0);
@@ -65,10 +65,25 @@ export default function PracticeScreen() {
       const accuracy = Math.round((correct / Math.max(1, lesson.steps.length)) * 100);
       announce(`Practice complete. ${accuracy} percent accuracy.`, { speak: true });
       haptic('success');
+      markLessonComplete(lesson.id, lesson.language);
+      addXp(15 + correct * 2);
+      pingActivity();
       earnBadge('badge-first-lesson');
       if (accuracy >= 90) earnBadge('badge-accuracy');
+      if (accuracy === 100) earnBadge('badge-perfect');
+      const completed = profile.completedLessonIds.length + 1;
+      if (completed >= 5) earnBadge('badge-five-lessons');
+      if (completed >= 10) earnBadge('badge-ten-lessons');
+      const languages = Object.keys(profile.lessonsPracticedByLanguage).length;
+      if (languages >= 2) earnBadge('badge-polyglot');
+      if (languages >= 3) earnBadge('badge-triglot');
+      if (profile.xp + 15 + correct * 2 >= 100) earnBadge('badge-xp-100');
+      if (profile.xp + 15 + correct * 2 >= 500) earnBadge('badge-xp-500');
+      if (profile.streakDays >= 3) earnBadge('badge-daily-3');
+      if (profile.streakDays >= 7) earnBadge('badge-daily-7');
+      if (profile.streakDays >= 30) earnBadge('badge-daily-30');
     }
-  }, [stepIdx, lesson, detection, results, announce, haptic, earnBadge]);
+  }, [stepIdx, lesson, detection, results, announce, haptic, earnBadge, addXp, markLessonComplete, pingActivity, profile]);
 
   if (!lesson) {
     return (

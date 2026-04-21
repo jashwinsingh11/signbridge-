@@ -5,31 +5,32 @@ import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { Card } from '@/components/Card';
 import { AccessibleButton } from '@/components/AccessibleButton';
+import { XpBar } from '@/components/XpBar';
+import { StreakFlame } from '@/components/StreakFlame';
 import { useAccessibility } from '@/context/AccessibilityContext';
 import { useUserProfile } from '@/context/UserProfileContext';
 import { dailyChallenge, LESSONS } from '@/data/lessons';
 import { signLanguageByCode } from '@/data/signLanguages';
+import { DICTIONARY } from '@/data/dictionary';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { theme, settings, announce } = useAccessibility();
-  const { profile } = useUserProfile();
+  const { profile, level, currentLevelXp, nextLevelXp, pingActivity } = useUserProfile();
 
   const lang = signLanguageByCode(profile.preferredSignLanguage);
   const challenge = useMemo(() => dailyChallenge(), []);
 
   useEffect(() => {
+    pingActivity();
     announce(`Welcome to SignBridge. Your preferred sign language is ${lang?.name ?? 'ASL'}.`);
-  }, [announce, lang?.name]);
-
-  const badgeCount = profile.badges.length;
-  const practiceCount = profile.practiceHistory.length;
+  }, [announce, lang?.name, pingActivity]);
 
   return (
     <Screen>
       <View style={styles.hero}>
         <Text style={[styles.eyebrow, { color: theme.colors.textMuted, fontSize: 12 * settings.fontScale }]}>
-          SIGNBRIDGE
+          SIGNBRIDGE · {profile.displayName.toUpperCase()}
         </Text>
         <Text style={[styles.title, { color: theme.colors.text, fontSize: 28 * settings.fontScale }]}>
           Bridge every conversation.
@@ -37,84 +38,63 @@ export default function HomeScreen() {
         <Text style={[styles.subtitle, { color: theme.colors.textMuted, fontSize: 15 * settings.fontScale }]}>
           Signing in {lang?.name ?? 'ASL'} · Voice in {profile.preferredSpokenLocale}
         </Text>
+        <View style={styles.heroRow}>
+          <StreakFlame streak={profile.streakDays} />
+          <View style={{ flex: 1 }}>
+            <XpBar level={level} current={currentLevelXp} next={nextLevelXp} compact />
+          </View>
+        </View>
       </View>
 
       <View style={styles.grid}>
         <Card title="Detect sign" subtitle="Point the camera. We listen with our eyes." style={styles.gridItem}>
-          <AccessibleButton
-            title="Start detection"
-            variant="primary"
-            onPress={() => router.push('/detect')}
-            accessibilityHint="Opens the camera to translate signed phrases into text."
-          />
+          <AccessibleButton title="Start detection" variant="primary" onPress={() => router.push('/detect')} />
         </Card>
         <Card title="Speak to sign" subtitle="Say something. Watch it sign back." style={styles.gridItem}>
-          <AccessibleButton
-            title="Start speaking"
-            variant="secondary"
-            onPress={() => router.push('/speak')}
-            accessibilityHint="Record your voice and animate a signing avatar."
-          />
+          <AccessibleButton title="Start speaking" variant="secondary" onPress={() => router.push('/speak')} />
         </Card>
       </View>
 
-      <Card title="Daily challenge" subtitle={challenge.title}>
+      <Card title="Today's challenge" subtitle={challenge.title}>
         <Text style={[styles.challengeDesc, { color: theme.colors.textMuted, fontSize: 14 * settings.fontScale }]}>
           {challenge.description}
         </Text>
-        <AccessibleButton
-          title={`Practice ${challenge.title}`}
-          variant="success"
-          onPress={() => router.push(`/lesson/${challenge.id}`)}
-          accessibilityHint="Start today's featured lesson."
-        />
+        <AccessibleButton title={`Practice ${challenge.title}`} variant="success" onPress={() => router.push(`/lesson/${challenge.id}`)} />
       </Card>
 
-      <Card title="Your progress">
-        <Stat label="Badges earned" value={badgeCount} theme={theme} scale={settings.fontScale} />
-        <Stat label="Practice attempts" value={practiceCount} theme={theme} scale={settings.fontScale} />
-        <Stat label="Custom gestures" value={profile.customGestures.length} theme={theme} scale={settings.fontScale} />
-        <Stat label="Lessons available" value={LESSONS.length} theme={theme} scale={settings.fontScale} />
+      <Card title="Explore">
+        <View style={styles.tileRow}>
+          <Tile label="Dictionary" count={`${DICTIONARY.length}`} onPress={() => router.push('/dictionary')} />
+          <Tile label="Fingerspell" onPress={() => router.push('/fingerspell')} />
+          <Tile label="Numbers" onPress={() => router.push('/numbers')} />
+        </View>
+        <View style={styles.tileRow}>
+          <Tile label="Handshapes" onPress={() => router.push('/handshapes')} />
+          <Tile label="Stats" onPress={() => router.push('/stats')} />
+          <Tile label="Lessons" count={`${LESSONS.length}`} onPress={() => router.push('/learn')} />
+        </View>
       </Card>
 
       <Card title="Quick actions">
-        <AccessibleButton
-          title="Two-way conversation"
-          onPress={() => router.push('/chat')}
-          variant="primary"
-          accessibilityHint="Open a live conversation with both signing and voice."
-        />
-        <AccessibleButton
-          title="Learn & practice"
-          onPress={() => router.push('/learn')}
-          variant="secondary"
-        />
-        <AccessibleButton
-          title="Profile & accessibility"
-          onPress={() => router.push('/profile')}
-          variant="ghost"
-        />
+        <AccessibleButton title="Two-way conversation" onPress={() => router.push('/chat')} variant="primary" />
+        <AccessibleButton title="Profile & accessibility" onPress={() => router.push('/profile')} variant="ghost" />
       </Card>
     </Screen>
   );
 }
 
-function Stat({
-  label,
-  value,
-  theme,
-  scale,
-}: {
-  label: string;
-  value: number;
-  theme: ReturnType<typeof useAccessibility>['theme'];
-  scale: number;
-}) {
+function Tile({ label, count, onPress }: { label: string; count?: string; onPress: () => void }) {
+  const { theme, settings, haptic } = useAccessibility();
   return (
-    <View style={styles.statRow} accessibilityLabel={`${label}: ${value}.`}>
-      <Text style={[styles.statLabel, { color: theme.colors.textMuted, fontSize: 14 * scale }]}>{label}</Text>
-      <Text style={[styles.statValue, { color: theme.colors.text, fontSize: 18 * scale }]}>{value}</Text>
-    </View>
+    <AccessibleButton
+      title={count ? `${label} (${count})` : label}
+      variant="secondary"
+      size="sm"
+      onPress={() => {
+        haptic('selection');
+        onPress();
+      }}
+    />
   );
 }
 
@@ -123,10 +103,9 @@ const styles = StyleSheet.create({
   eyebrow: { fontWeight: '700', letterSpacing: 2 },
   title: { fontWeight: '800' },
   subtitle: {},
+  heroRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8 },
   grid: { flexDirection: 'row', gap: 12 },
   gridItem: { flex: 1 },
   challengeDesc: {},
-  statRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  statLabel: {},
-  statValue: { fontWeight: '800' },
+  tileRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
 });

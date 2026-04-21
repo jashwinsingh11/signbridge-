@@ -14,6 +14,7 @@ import { useConversations } from '@/context/ConversationContext';
 import { useSignDetection } from '@/hooks/useSignDetection';
 import { SIGN_LANGUAGES, signLanguageByCode } from '@/data/signLanguages';
 import { MockClassifier } from '@/services/signClassifier';
+import { speak, stopSpeaking } from '@/services/voice/tts';
 import type { DetectedSign, SignLanguageCode } from '@/types';
 
 export default function DetectScreen() {
@@ -200,12 +201,30 @@ export default function DetectScreen() {
 
       <Card title="Continuous sentence" subtitle="Buffered tokens. Reset to clear.">
         {sentence ? (
-          <Text
-            accessibilityLabel={`Current sentence: ${sentence}`}
-            style={[styles.sentence, { color: theme.colors.text, fontSize: 18 * settings.fontScale }]}
-          >
-            {sentence}
-          </Text>
+          <>
+            <Text
+              accessibilityLabel={`Current sentence: ${sentence}`}
+              style={[styles.sentence, { color: theme.colors.text, fontSize: 18 * settings.fontScale }]}
+            >
+              {sentence}
+            </Text>
+            <View style={styles.row}>
+              <AccessibleButton
+                title="Speak sentence"
+                variant="primary"
+                onPress={() => {
+                  haptic('light');
+                  speak(sentence, { locale: profile.preferredSpokenLocale });
+                }}
+                style={styles.flex1}
+              />
+              <AccessibleButton
+                title="Stop"
+                variant="ghost"
+                onPress={() => stopSpeaking()}
+              />
+            </View>
+          </>
         ) : (
           <EmptyState icon="…" title="No sentence yet" description="Begin signing to build a sentence." />
         )}

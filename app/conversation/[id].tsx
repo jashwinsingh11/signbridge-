@@ -1,5 +1,6 @@
 import React from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Platform, Share, StyleSheet, Text, View } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { Screen } from '@/components/Screen';
@@ -8,16 +9,53 @@ import { AccessibleButton } from '@/components/AccessibleButton';
 import { EmptyState } from '@/components/EmptyState';
 import { useAccessibility } from '@/context/AccessibilityContext';
 import { useConversations } from '@/context/ConversationContext';
+import type { Conversation } from '@/types';
+
+function transcriptFor(convo: Conversation): string {
+  const header = `SignBridge transcript — ${convo.title}\n${new Date(convo.createdAt).toLocaleString()}\n`;
+  const body = convo.turns
+    .map((t) => {
+      const who = t.speaker === 'me' ? 'You' : 'Them';
+      const time = new Date(t.timestampMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const conf = t.confidence != null ? ` (confidence ${Math.round(t.confidence * 100)}%)` : '';
+      return `[${time}] ${who} · ${t.mode.toUpperCase()}${conf}: ${t.text}`;
+    })
+    .join('\n');
+  return `${header}\n${body}`;
+}
 
 export default function ConversationDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { theme, settings } = useAccessibility();
+  const { theme, settings, announce, haptic } = useAccessibility();
   const { conversations, deleteConversation, setActiveId } = useConversations();
 
   if (id === 'list') {
     return <ListView />;
   }
+
+  const doShare = async (convo: Conversation) => {
+    const text = transcriptFor(convo);
+    try {
+      if (Platform.OS === 'web') {
+        await Clipboard.setStringAsync(text);
+        haptic('success');
+        announce('Transcript copied to clipboard.');
+      } else {
+        await Share.share({ message: text, title: `SignBridge: ${convo.title}` });
+        haptic('success');
+      }
+    } catch {
+      haptic('error');
+      announce('Could not share transcript.');
+    }
+  };
+
+  const doCopy = async (convo: Conversation) => {
+    await Clipboard.setStringAsync(transcriptFor(convo));
+    haptic('success');
+    announce('Transcript copied to clipboard.');
+  };
 
   const convo = conversations.find((c) => c.id === id);
   if (!convo) {
@@ -60,6 +98,20 @@ export default function ConversationDetailScreen() {
                 </View>
               );
             }}
+          />
+        </View>
+        <View style={styles.row}>
+          <AccessibleButton
+            title="Share"
+            variant="primary"
+            onPress={() => doShare(convo)}
+            style={styles.flex1}
+          />
+          <AccessibleButton
+            title="Copy"
+            variant="secondary"
+            onPress={() => doCopy(convo)}
+            style={styles.flex1}
           />
         </View>
         <View style={styles.row}>

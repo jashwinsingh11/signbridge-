@@ -111,6 +111,13 @@ export interface UserProfile {
   practiceHistory: PracticeAttempt[];
   customGestures: CustomGesture[];
   vocabularyFrequency: Record<string, number>;
+  xp: number;
+  streakDays: number;
+  lastActiveDay: string;
+  completedLessonIds: string[];
+  favoriteEntryIds: string[];
+  onboardingCompleted: boolean;
+  lessonsPracticedByLanguage: Record<string, number>;
 }
 
 export interface AccessibilitySettings {
