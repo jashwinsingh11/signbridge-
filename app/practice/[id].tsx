@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -23,6 +23,11 @@ export default function PracticeScreen() {
   const lesson = useMemo(() => (typeof id === 'string' ? lessonById(id) : undefined), [id]);
   const [stepIdx, setStepIdx] = useState(0);
   const [results, setResults] = useState<PracticeAttempt[]>([]);
+  const completedRef = useRef(false);
+  const profileSnapshot = useRef(profile);
+  useEffect(() => {
+    profileSnapshot.current = profile;
+  }, [profile]);
 
   const onDetect = useCallback(
     (sign: DetectedSign) => {
@@ -59,31 +64,35 @@ export default function PracticeScreen() {
 
   useEffect(() => {
     if (!lesson) return;
-    if (stepIdx >= lesson.steps.length) {
-      detection.stop();
-      const correct = results.filter((r) => r.correct).length;
-      const accuracy = Math.round((correct / Math.max(1, lesson.steps.length)) * 100);
-      announce(`Practice complete. ${accuracy} percent accuracy.`, { speak: true });
-      haptic('success');
-      markLessonComplete(lesson.id, lesson.language);
-      addXp(15 + correct * 2);
-      pingActivity();
-      earnBadge('badge-first-lesson');
-      if (accuracy >= 90) earnBadge('badge-accuracy');
-      if (accuracy === 100) earnBadge('badge-perfect');
-      const completed = profile.completedLessonIds.length + 1;
-      if (completed >= 5) earnBadge('badge-five-lessons');
-      if (completed >= 10) earnBadge('badge-ten-lessons');
-      const languages = Object.keys(profile.lessonsPracticedByLanguage).length;
-      if (languages >= 2) earnBadge('badge-polyglot');
-      if (languages >= 3) earnBadge('badge-triglot');
-      if (profile.xp + 15 + correct * 2 >= 100) earnBadge('badge-xp-100');
-      if (profile.xp + 15 + correct * 2 >= 500) earnBadge('badge-xp-500');
-      if (profile.streakDays >= 3) earnBadge('badge-daily-3');
-      if (profile.streakDays >= 7) earnBadge('badge-daily-7');
-      if (profile.streakDays >= 30) earnBadge('badge-daily-30');
-    }
-  }, [stepIdx, lesson, detection, results, announce, haptic, earnBadge, addXp, markLessonComplete, pingActivity, profile]);
+    if (stepIdx < lesson.steps.length) return;
+    if (completedRef.current) return;
+    completedRef.current = true;
+    detection.stop();
+    const correct = results.filter((r) => r.correct).length;
+    const accuracy = Math.round((correct / Math.max(1, lesson.steps.length)) * 100);
+    const snapshot = profileSnapshot.current;
+    const xpGained = 15 + correct * 2;
+    announce(`Practice complete. ${accuracy} percent accuracy.`, { speak: true });
+    haptic('success');
+    markLessonComplete(lesson.id, lesson.language);
+    addXp(xpGained);
+    pingActivity();
+    earnBadge('badge-first-lesson');
+    if (accuracy >= 90) earnBadge('badge-accuracy');
+    if (accuracy === 100) earnBadge('badge-perfect');
+    const completedCount = snapshot.completedLessonIds.length + 1;
+    if (completedCount >= 5) earnBadge('badge-five-lessons');
+    if (completedCount >= 10) earnBadge('badge-ten-lessons');
+    const languages = new Set(Object.keys(snapshot.lessonsPracticedByLanguage));
+    languages.add(lesson.language);
+    if (languages.size >= 2) earnBadge('badge-polyglot');
+    if (languages.size >= 3) earnBadge('badge-triglot');
+    if (snapshot.xp + xpGained >= 100) earnBadge('badge-xp-100');
+    if (snapshot.xp + xpGained >= 500) earnBadge('badge-xp-500');
+    if (snapshot.streakDays >= 3) earnBadge('badge-daily-3');
+    if (snapshot.streakDays >= 7) earnBadge('badge-daily-7');
+    if (snapshot.streakDays >= 30) earnBadge('badge-daily-30');
+  }, [stepIdx, lesson, detection, results, announce, haptic, earnBadge, addXp, markLessonComplete, pingActivity]);
 
   if (!lesson) {
     return (
@@ -200,6 +209,7 @@ export default function PracticeScreen() {
               title="Again"
               variant="primary"
               onPress={() => {
+                completedRef.current = false;
                 setStepIdx(0);
                 setResults([]);
                 detection.reset();
