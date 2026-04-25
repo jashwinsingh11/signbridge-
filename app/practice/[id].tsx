@@ -209,6 +209,7 @@ export default function PracticeScreen() {
               title="Again"
               variant="primary"
               onPress={() => {
+                completedRef.current = false;
                 setStepIdx(0);
                 setResults([]);
                 detection.reset();
