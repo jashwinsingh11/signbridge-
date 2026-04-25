@@ -40,6 +40,11 @@ export function useSignDetection(
   });
   const frameCountRef = useRef(0);
   const fpsTickRef = useRef(Date.now());
+  const fpsRef = useRef(0);
+  const onSignRef = useRef(onSign);
+  useEffect(() => {
+    onSignRef.current = onSign;
+  }, [onSign]);
 
   useEffect(() => {
     classifierRef.current.prepare().catch(() => undefined);
@@ -53,15 +58,16 @@ export function useSignDetection(
     const now = Date.now();
     frameCountRef.current += 1;
     const elapsed = now - fpsTickRef.current;
-    let fpsNext = state.fps;
+    let fpsNext = fpsRef.current;
     if (elapsed >= 1000) {
       fpsNext = Math.round((frameCountRef.current * 1000) / elapsed);
       frameCountRef.current = 0;
       fpsTickRef.current = now;
+      fpsRef.current = fpsNext;
     }
     const results = await classifierRef.current.classifyFrame({ timestampMs: now });
     if (results.length === 0) {
-      if (fpsNext !== state.fps) setState((s) => ({ ...s, fps: fpsNext }));
+      if (fpsNext !== fpsRef.current || elapsed >= 1000) setState((s) => ({ ...s, fps: fpsNext }));
       return;
     }
     const [top, ...rest] = results;
@@ -72,8 +78,13 @@ export function useSignDetection(
       sentence: classifierRef.current.sentenceBuffer(),
       fps: fpsNext,
     });
-    onSign?.(top);
-  }, [onSign, state.fps]);
+    onSignRef.current?.(top);
+  }, []);
+
+  const tickRef = useRef(tick);
+  useEffect(() => {
+    tickRef.current = tick;
+  }, [tick]);
 
   const start = useCallback(() => {
     if (rafRef.current) return;
@@ -81,9 +92,9 @@ export function useSignDetection(
     frameCountRef.current = 0;
     fpsTickRef.current = Date.now();
     rafRef.current = setInterval(() => {
-      void tick();
+      void tickRef.current();
     }, intervalMs);
-  }, [tick, intervalMs]);
+  }, [intervalMs]);
 
   const stop = useCallback(() => {
     if (rafRef.current) {

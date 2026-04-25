@@ -46,12 +46,16 @@ const AccessibilityContext = createContext<AccessibilityContextValue | null>(nul
 export function AccessibilityProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<AccessibilitySettings>(DEFAULT_SETTINGS);
   const [screenReaderEnabled, setScreenReaderEnabled] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const colorScheme = useColorScheme();
 
   useEffect(() => {
     let mounted = true;
-    loadJSON(StorageKeys.accessibilitySettings, DEFAULT_SETTINGS).then((loaded) => {
-      if (mounted) setSettings({ ...DEFAULT_SETTINGS, ...loaded });
+    loadJSON(StorageKeys.accessibilitySettings, DEFAULT_SETTINGS).then((loadedSettings) => {
+      if (mounted) {
+        setSettings({ ...DEFAULT_SETTINGS, ...loadedSettings });
+        setLoaded(true);
+      }
     });
     AccessibilityInfo.isScreenReaderEnabled().then((enabled) => {
       if (mounted) setScreenReaderEnabled(enabled);
@@ -70,8 +74,9 @@ export function AccessibilityProvider({ children }: { children: React.ReactNode 
   }, []);
 
   useEffect(() => {
+    if (!loaded) return;
     saveJSON(StorageKeys.accessibilitySettings, settings);
-  }, [settings]);
+  }, [settings, loaded]);
 
   const setSetting = useCallback(<K extends keyof AccessibilitySettings>(key: K, value: AccessibilitySettings[K]) => {
     setSettings((prev) => ({ ...prev, [key]: value }));

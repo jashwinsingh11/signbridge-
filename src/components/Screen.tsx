@@ -17,7 +17,7 @@ export function Screen({ children, scroll = true, padded = true, style, contentS
   const Container = scroll ? ScrollView : View;
   const containerProps = scroll
     ? { contentContainerStyle: [padded && styles.padded, contentStyle] }
-    : { style: [padded && styles.padded, contentStyle] };
+    : { style: [styles.fill, padded && styles.padded, contentStyle] };
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.colors.background }, style]} edges={['top', 'left', 'right']}>
       <Container {...(containerProps as Record<string, unknown>)}>{children}</Container>
@@ -27,5 +27,6 @@ export function Screen({ children, scroll = true, padded = true, style, contentS
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
+  fill: { flex: 1 },
   padded: { padding: 16, gap: 16 },
 });
